@@ -9,17 +9,25 @@ import cn.org.hentai.jtt1078.util.FLVUtils;
 import cn.org.hentai.jtt1078.util.HttpChunk;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Created by matrixy on 2020/1/13.
  */
 public class VideoSubscriber extends Subscriber
 {
+    static Logger logger = LoggerFactory.getLogger(VideoSubscriber.class);
+
     private long videoTimestamp = 0;
     private long audioTimestamp = 0;
     private long lastVideoFrameTimeOffset = 0;
     private long lastAudioFrameTimeOffset = 0;
     private boolean videoHeaderSent = false;
+    // Wait for the first live keyframe so subscribers always start at a clean GOP boundary.
+    // Sending mid-GOP P-frames to a new subscriber causes MSE decode errors because
+    // the reference frames (earlier P-frames in the same GOP) were never sent.
+    private boolean waitingForKeyframe = true;
 
     public VideoSubscriber(String tag, ChannelHandlerContext ctx)
     {
@@ -29,33 +37,32 @@ public class VideoSubscriber extends Subscriber
     @Override
     public void onVideoData(long timeoffset, byte[] data, FlvEncoder flvEncoder)
     {
-        if (lastVideoFrameTimeOffset == 0) lastVideoFrameTimeOffset = timeoffset;
-
-        // 之前是不是已经发送过了？没有的话，需要补发FLV HEADER的。。。
-        if (videoHeaderSent == false && flvEncoder.videoReady())
-        {
-            enqueue(HttpChunk.make(flvEncoder.getHeader().getBytes()));
-            enqueue(HttpChunk.make(flvEncoder.getVideoHeader().getBytes()));
-
-            // 直接下发第一个I帧
-            byte[] iFrame = flvEncoder.getLastIFrame();
-            if (iFrame != null)
-            {
-                FLVUtils.resetTimestamp(iFrame, (int) videoTimestamp);
-                enqueue(HttpChunk.make(iFrame));
-            }
-
-            videoHeaderSent = true;
-        }
-
         if (data == null) return;
 
-        // 修改时间戳
-        // System.out.println("Time: " + videoTimestamp + ", current: " + timeoffset);
-        FLVUtils.resetTimestamp(data, (int) videoTimestamp);
+        if (waitingForKeyframe)
+        {
+            // FLV video tag layout: [tagType(1)][dataSize(3)][timestamp(4)][streamId(3)][videoData...]
+            // videoData byte 0 (= packet byte 11): FrameType(4bits)|CodecID(4bits)
+            //   0x17 = keyframe + AVC,  0x27 = inter-frame + AVC
+            if (data.length <= 11 || data[11] != 0x17) return;
+
+            // First live keyframe — send FLV header and AVC sequence header now
+            enqueue(HttpChunk.make(flvEncoder.getHeader().getBytes()));
+            byte[] seqHeader = flvEncoder.getVideoHeader().getBytes();
+            FLVUtils.resetTimestamp(seqHeader, 0);
+            enqueue(HttpChunk.make(seqHeader));
+
+            videoHeaderSent = true;
+            waitingForKeyframe = false;
+            videoTimestamp = 0;
+            lastVideoFrameTimeOffset = timeoffset;
+        }
+
+        // Advance timestamp before applying so every frame gets a unique, monotonically
+        // increasing DTS (the original code advanced AFTER, causing two frames at DTS=0).
         videoTimestamp += (int)(timeoffset - lastVideoFrameTimeOffset);
         lastVideoFrameTimeOffset = timeoffset;
-
+        FLVUtils.resetTimestamp(data, (int) videoTimestamp);
         enqueue(HttpChunk.make(data));
     }
 
