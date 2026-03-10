@@ -9,7 +9,7 @@ import java.io.OutputStream;
 /**
  * Created by matrixy on 2020/1/3.
  */
-public final class FlvEncoder
+public class FlvEncoder
 {
     Packet flvHeader;
     Packet videoHeader;

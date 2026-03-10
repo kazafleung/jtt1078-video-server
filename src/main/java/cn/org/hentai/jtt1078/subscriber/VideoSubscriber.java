@@ -42,9 +42,9 @@ public class VideoSubscriber extends Subscriber
         if (waitingForKeyframe)
         {
             // FLV video tag layout: [tagType(1)][dataSize(3)][timestamp(4)][streamId(3)][videoData...]
-            // videoData byte 0 (= packet byte 11): FrameType(4bits)|CodecID(4bits)
-            //   0x17 = keyframe + AVC,  0x27 = inter-frame + AVC
-            if (data.length <= 11 || data[11] != 0x17) return;
+            // videoData byte 0 (= packet byte 11): FrameType(4bits) | CodecID(4bits)
+            //   FrameType 1 = keyframe (both AVC 0x17 and HEVC 0x1C have upper nibble = 1)
+            if (data.length <= 11 || (data[11] & 0xF0) != 0x10) return;
 
             // First live keyframe — send FLV header and AVC sequence header now
             enqueue(HttpChunk.make(flvEncoder.getHeader().getBytes()));

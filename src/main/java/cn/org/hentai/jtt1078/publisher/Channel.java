@@ -4,6 +4,7 @@ import cn.org.hentai.jtt1078.codec.AudioCodec;
 import cn.org.hentai.jtt1078.entity.Media;
 import cn.org.hentai.jtt1078.entity.MediaEncoding;
 import cn.org.hentai.jtt1078.flv.FlvEncoder;
+import cn.org.hentai.jtt1078.flv.FlvHevcEncoder;
 import cn.org.hentai.jtt1078.subscriber.RTMPPublisher;
 import cn.org.hentai.jtt1078.subscriber.Subscriber;
 import cn.org.hentai.jtt1078.subscriber.VideoSubscriber;
@@ -38,7 +39,7 @@ public class Channel
     {
         this.tag = tag;
         this.subscribers = new ConcurrentLinkedQueue<Subscriber>();
-        this.flvEncoder = new FlvEncoder(true, true);
+        this.flvEncoder = null;  // created lazily on first video packet based on codec
         this.buffer = new ByteHolder(2048 * 100);
 
         if (StringUtils.isEmpty(Configs.get("rtmp.url")) == false)
@@ -77,8 +78,13 @@ public class Channel
         if (firstTimestamp == -1)
         {
             firstTimestamp = timeoffset;
-            logger.info("video stream started: tag={} pt={} firstTs={}", tag, payloadType, timeoffset);
+            MediaEncoding.Encoding enc = MediaEncoding.getEncoding(Media.Type.Video, payloadType);
+            flvEncoder = (enc == MediaEncoding.Encoding.H265)
+                    ? new FlvHevcEncoder(true, true)
+                    : new FlvEncoder(true, true);
+            logger.info("video stream started: tag={} codec={} (pt={})", tag, enc, payloadType);
         }
+        if (flvEncoder == null) return;
         this.publishing = true;
         this.buffer.write(h264);
         while (true)
@@ -87,14 +93,9 @@ public class Channel
             if (nalu == null) break;
             if (nalu.length < 4) continue;
 
-            int naluType = nalu[4] & 0x1f;
-            logger.debug("nalu type=0x{} len={} videoReady={}", Integer.toHexString(naluType), nalu.length, flvEncoder.videoReady());
-
             byte[] flvTag = this.flvEncoder.write(nalu, (int) (timeoffset - firstTimestamp));
-
             if (flvTag == null) continue;
 
-            // 广播给所有的观众
             broadcastVideo(timeoffset, flvTag);
         }
     }
