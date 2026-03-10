@@ -74,7 +74,11 @@ public class Channel
 
     public void writeVideo(long sequence, long timeoffset, int payloadType, byte[] h264)
     {
-        if (firstTimestamp == -1) firstTimestamp = timeoffset;
+        if (firstTimestamp == -1)
+        {
+            firstTimestamp = timeoffset;
+            logger.info("video stream started: tag={} pt={} firstTs={}", tag, payloadType, timeoffset);
+        }
         this.publishing = true;
         this.buffer.write(h264);
         while (true)
@@ -82,6 +86,9 @@ public class Channel
             byte[] nalu = readNalu();
             if (nalu == null) break;
             if (nalu.length < 4) continue;
+
+            int naluType = nalu[4] & 0x1f;
+            logger.debug("nalu type=0x{} len={} videoReady={}", Integer.toHexString(naluType), nalu.length, flvEncoder.videoReady());
 
             byte[] flvTag = this.flvEncoder.write(nalu, (int) (timeoffset - firstTimestamp));
 

@@ -12,7 +12,7 @@ public class VideoPushTest
 {
     public static void main(String[] args) throws Exception
     {
-        Socket conn = new Socket("localhost", 1078);
+        Socket conn = new Socket("152.69.210.81", 1078);
         OutputStream os = conn.getOutputStream();
 
         // InputStream fis = new FileInputStream("e:\\workspace\\enc_dec_audio\\streamax.bin");
