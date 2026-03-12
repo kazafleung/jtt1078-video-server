@@ -82,7 +82,7 @@ public class Channel
             flvEncoder = (enc == MediaEncoding.Encoding.H265)
                     ? new FlvHevcEncoder(true, true)
                     : new FlvEncoder(true, true);
-            logger.info("video stream started: tag={} codec={} (pt={})", tag, enc, payloadType);
+            logger.info("video stream started: tag={} codec={}", tag, enc);
         }
         if (flvEncoder == null) return;
         this.publishing = true;

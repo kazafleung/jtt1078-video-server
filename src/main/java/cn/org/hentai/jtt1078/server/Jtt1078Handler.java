@@ -54,13 +54,6 @@ public class Jtt1078Handler extends SimpleChannelInboundHandler<Packet>
 
         int pt = packet.seek(5).nextByte() & 0x7f;
 
-        logger.info("pkt tag={} dataType=0x{} pkType=0x{} pt={} len={}",
-                tag,
-                Integer.toHexString(dataType),
-                Integer.toHexString(pkType),
-                pt,
-                packet.size());
-
         if (dataType == 0x00 || dataType == 0x01 || dataType == 0x02)
         {
             // 碰到结束标记时，序号+1
