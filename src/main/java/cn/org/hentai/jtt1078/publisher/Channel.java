@@ -143,19 +143,38 @@ public class Channel
 
     private byte[] readNalu()
     {
-        for (int i = 0; i < buffer.size() - 3; i++)
+        int size = buffer.size();
+        for (int i = 0; i < size - 2; i++)
         {
-            int a = buffer.get(i + 0) & 0xff;
+            int a = buffer.get(i) & 0xff;
             int b = buffer.get(i + 1) & 0xff;
             int c = buffer.get(i + 2) & 0xff;
-            int d = buffer.get(i + 3) & 0xff;
-            if (a == 0x00 && b == 0x00 && c == 0x00 && d == 0x01)
+
+            boolean isStartCode = false;
+
+            // Check for 4-byte start code: 00 00 00 01
+            if (i < size - 3)
             {
-                if (i == 0) continue;
-                byte[] nalu = new byte[i];
-                buffer.sliceInto(nalu, i);
-                return nalu;
+                int d = buffer.get(i + 3) & 0xff;
+                if (a == 0x00 && b == 0x00 && c == 0x00 && d == 0x01)
+                    isStartCode = true;
             }
+
+            // Check for 3-byte start code: 00 00 01
+            // Only treat as standalone 3-byte SC if the preceding byte is not 0x00
+            // (which would make it the tail of a 4-byte start code).
+            if (!isStartCode && a == 0x00 && b == 0x00 && c == 0x01)
+            {
+                if (i == 0 || (buffer.get(i - 1) & 0xff) != 0x00)
+                    isStartCode = true;
+            }
+
+            if (!isStartCode) continue;
+            if (i == 0) continue;
+
+            byte[] nalu = new byte[i];
+            buffer.sliceInto(nalu, i);
+            return nalu;
         }
         return null;
     }

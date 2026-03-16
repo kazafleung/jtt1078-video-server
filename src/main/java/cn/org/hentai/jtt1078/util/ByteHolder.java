@@ -1,12 +1,15 @@
 package cn.org.hentai.jtt1078.util;
 
 import java.util.Arrays;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Created by matrixy on 2018-06-15.
  */
 public class ByteHolder
 {
+    static Logger logger = LoggerFactory.getLogger(ByteHolder.class);
     int offset = 0;
     int size = 0;
     byte[] buffer = null;
@@ -28,8 +31,13 @@ public class ByteHolder
 
     public void write(byte[] data, int offset, int length)
     {
-        while (this.offset + length >= buffer.length)
-            throw new RuntimeException(String.format("exceed the max buffer size, max length: %d, data length: %d", buffer.length, length));
+        if (this.offset + length >= buffer.length)
+        {
+            logger.warn("video buffer overflow (max={}, used={}, incoming={}), resetting buffer",
+                    buffer.length, this.offset, length);
+            this.offset = 0;
+            this.size = 0;
+        }
 
         // 复制一下内容
         System.arraycopy(data, offset, buffer, this.offset, length);
