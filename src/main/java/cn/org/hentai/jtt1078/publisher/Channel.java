@@ -33,6 +33,8 @@ public class Channel {
     AudioCodec audioCodec;
     FlvEncoder flvEncoder;
     private long firstTimestamp = -1;
+    private long lastVideoPacketTime = -1;
+    private long videoPacketCount = 0;
 
     public Channel(String tag) {
         this.tag = tag;
@@ -48,6 +50,12 @@ public class Channel {
 
     public boolean isPublishing() {
         return publishing;
+    }
+
+    public String statusInfo() {
+        long idleSec = lastVideoPacketTime < 0 ? -1 : (System.currentTimeMillis() - lastVideoPacketTime) / 1000;
+        return String.format("tag=%s publishing=%b subscribers=%d bufferUsed=%d packets=%d idleSec=%d",
+                tag, publishing, subscribers.size(), buffer.size(), videoPacketCount, idleSec);
     }
 
     public Subscriber subscribe(ChannelHandlerContext ctx) {
@@ -79,6 +87,8 @@ public class Channel {
         if (flvEncoder == null)
             return;
         this.publishing = true;
+        videoPacketCount++;
+        lastVideoPacketTime = System.currentTimeMillis();
         this.buffer.write(h264);
         while (true) {
             byte[] nalu = readNalu();
