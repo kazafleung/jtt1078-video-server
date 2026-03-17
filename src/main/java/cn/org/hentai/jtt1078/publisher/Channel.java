@@ -25,6 +25,8 @@ public class Channel
 {
     static Logger logger = LoggerFactory.getLogger(Channel.class);
 
+    private static final byte[] NALU_START_CODE = {0, 0, 0, 1};
+
     ConcurrentLinkedQueue<Subscriber> subscribers;
     RTMPPublisher rtmpPublisher;
 
@@ -40,7 +42,7 @@ public class Channel
         this.tag = tag;
         this.subscribers = new ConcurrentLinkedQueue<Subscriber>();
         this.flvEncoder = null;  // created lazily on first video packet based on codec
-        this.buffer = new ByteHolder(2048 * 100);
+        this.buffer = new ByteHolder(1024 * 1024);
 
         if (StringUtils.isEmpty(Configs.get("rtmp.url")) == false)
         {
@@ -86,7 +88,18 @@ public class Channel
         }
         if (flvEncoder == null) return;
         this.publishing = true;
-        this.buffer.write(h264);
+        // Normalize to 4-byte start code. JTT1078 devices may send raw NAL units
+        // without any start code, or with a 3-byte start code. readNalu() uses
+        // 4-byte start codes as NALU delimiters, and FlvEncoder expects nalu[4]
+        // to be the NAL header byte (requires a preceding 4-byte start code).
+        int scLen = 0;
+        if (h264.length >= 4 && h264[0] == 0 && h264[1] == 0 && h264[2] == 0 && h264[3] == 1) {
+            scLen = 4;
+        } else if (h264.length >= 3 && h264[0] == 0 && h264[1] == 0 && h264[2] == 1) {
+            scLen = 3;
+        }
+        this.buffer.write(NALU_START_CODE);
+        this.buffer.write(h264, scLen, h264.length - scLen);
         while (true)
         {
             byte[] nalu = readNalu();
