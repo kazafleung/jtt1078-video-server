@@ -40,7 +40,7 @@ public class Channel {
         this.tag = tag;
         this.subscribers = new ConcurrentLinkedQueue<Subscriber>();
         this.flvEncoder = null; // created lazily on first video packet based on codec
-        this.buffer = new ByteHolder(1024 * 1024);
+        this.buffer = new ByteHolder(2048 * 100);
 
         if (StringUtils.isEmpty(Configs.get("rtmp.url")) == false) {
             rtmpPublisher = new RTMPPublisher(tag);
@@ -50,6 +50,16 @@ public class Channel {
 
     public boolean isPublishing() {
         return publishing;
+    }
+
+    public String getTag() {
+        return tag;
+    }
+
+    /** True when video packets have arrived within the last 30 seconds. */
+    public boolean isActivelyPublishing() {
+        return publishing && lastVideoPacketTime > 0
+                && (System.currentTimeMillis() - lastVideoPacketTime) < 30_000;
     }
 
     public String statusInfo() {

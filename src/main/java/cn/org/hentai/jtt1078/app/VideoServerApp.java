@@ -1,5 +1,6 @@
 package cn.org.hentai.jtt1078.app;
 
+import cn.org.hentai.jtt1078.db.MongoService;
 import cn.org.hentai.jtt1078.http.GeneralResponseWriter;
 import cn.org.hentai.jtt1078.http.NettyHttpServerHandler;
 import cn.org.hentai.jtt1078.publisher.PublishManager;
@@ -35,6 +36,11 @@ public class VideoServerApp
         Configs.init("/app.properties");
         PublishManager.init();
         SessionManager.init();
+
+        String mongoUri = Configs.get("mongodb.uri");
+        String mongoDb  = Configs.get("mongodb.db");
+        if (mongoUri != null && mongoDb != null)
+            MongoService.init(mongoUri, mongoDb);
 
         VideoServer videoServer = new VideoServer();
         HttpServer httpServer = new HttpServer();

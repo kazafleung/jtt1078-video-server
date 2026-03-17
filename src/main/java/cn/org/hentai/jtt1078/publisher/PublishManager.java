@@ -1,5 +1,6 @@
 package cn.org.hentai.jtt1078.publisher;
 
+import cn.org.hentai.jtt1078.db.MongoService;
 import cn.org.hentai.jtt1078.entity.Media;
 import cn.org.hentai.jtt1078.subscriber.Subscriber;
 import io.netty.channel.ChannelHandlerContext;
@@ -64,8 +65,12 @@ public final class PublishManager {
 
     public void close(String tag) {
         Channel chl = channels.remove(tag);
-        if (chl != null)
+        if (chl != null) {
             chl.close();
+            MongoService mongo = MongoService.getInstance();
+            if (mongo != null)
+                mongo.updateStreamStatus(tag, "STOPPED");
+        }
     }
 
     public void unsubscribe(String tag, long watcherId) {
@@ -89,6 +94,11 @@ public final class PublishManager {
             }
             for (Channel chl : instance.channels.values()) {
                 logger.info("[status] {}", chl.statusInfo());
+                MongoService mongo = MongoService.getInstance();
+                if (mongo != null) {
+                    String status = chl.isActivelyPublishing() ? "STREAMING" : "NOT_STREAMING";
+                    mongo.updateStreamStatus(chl.getTag(), status);
+                }
             }
         }, 10, 10, TimeUnit.SECONDS);
     }
