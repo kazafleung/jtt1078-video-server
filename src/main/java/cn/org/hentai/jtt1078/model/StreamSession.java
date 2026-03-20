@@ -5,44 +5,46 @@ import java.time.ZoneOffset;
 
 /**
  * Tracks live streaming sessions initiated via JT/T 1078 T9101 commands.
- * Maps to the stream_sessions collection in MongoDB.
+ * One document per (clientId, channelNo) — upserted on each T9101 request.
+ * Status is updated both by this server (on T9102 control commands) and by
+ * the media server when it receives/loses stream data.
  */
 public class StreamSession {
 
     private String id;
 
-    /** 媒体服务器标识: 12位clientId(左补0) + "-" + channelNo */
+    /** 媒体服务器标识: 12位cid(左补0) + "-" + cho */
     private String tag;
 
-    /** 终端手机号 */
-    private String clientId;
+    /** 终端手机号 (cid) */
+    private String cid;
 
-    /** 逻辑通道号 */
-    private int channelNo;
+    /** 逻辑通道号 (cho) */
+    private int cho;
 
-    /** 媒体类型: 0=音视频 1=视频 2=双向对讲 3=监听 4=中心广播 5=透传 */
-    private int mediaType;
+    /** 媒体类型: 0=音视频 1=视频 2=双向对讲 3=监听 4=中心广播 5=透传 (mt) */
+    private int mt;
 
-    /** 码流类型: 0=主码流 1=子码流 */
-    private int streamType;
+    /** 码流类型: 0=主码流 1=子码流 (sty) */
+    private int sty;
 
-    /** 媒体服务器IP */
-    private String serverIp;
+    /** 媒体服务器IP (sip) */
+    private String sip;
 
-    /** 媒体服务器TCP端口 */
-    private int serverTcpPort;
+    /** 媒体服务器TCP端口 (stp) */
+    private int stp;
 
-    /** 媒体服务器UDP端口 */
-    private int serverUdpPort;
+    /** 媒体服务器UDP端口 (sup) */
+    private int sup;
 
-    /** 流状态 */
-    private Status status;
+    /** 流状态 (st) */
+    private Status st;
 
-    /** 请求时间 (UTC) */
-    private LocalDateTime requestedAt;
+    /** 请求时间 (UTC) (reqAt) */
+    private LocalDateTime reqAt;
 
-    /** 最后状态更新时间 (UTC) */
-    private LocalDateTime updatedAt;
+    /** 最后状态更新时间 (UTC) (upAt) */
+    private LocalDateTime upAt;
 
     public enum Status {
         /** T9101 sent, waiting for device to connect to media server */
@@ -58,8 +60,12 @@ public class StreamSession {
     }
 
     public StreamSession markUpdated() {
-        this.updatedAt = LocalDateTime.now(ZoneOffset.UTC);
+        this.upAt = LocalDateTime.now(ZoneOffset.UTC);
         return this;
+    }
+
+    public static String buildTag(String cid, int cho) {
+        return String.format("%012d", Long.parseLong(cid)) + "-" + cho;
     }
 
     public String getId() {
@@ -80,93 +86,93 @@ public class StreamSession {
         return this;
     }
 
-    public String getClientId() {
-        return clientId;
+    public String getCid() {
+        return cid;
     }
 
-    public StreamSession setClientId(String clientId) {
-        this.clientId = clientId;
+    public StreamSession setCid(String cid) {
+        this.cid = cid;
         return this;
     }
 
-    public int getChannelNo() {
-        return channelNo;
+    public int getCho() {
+        return cho;
     }
 
-    public StreamSession setChannelNo(int channelNo) {
-        this.channelNo = channelNo;
+    public StreamSession setCho(int cho) {
+        this.cho = cho;
         return this;
     }
 
-    public int getMediaType() {
-        return mediaType;
+    public int getMt() {
+        return mt;
     }
 
-    public StreamSession setMediaType(int mediaType) {
-        this.mediaType = mediaType;
+    public StreamSession setMt(int mt) {
+        this.mt = mt;
         return this;
     }
 
-    public int getStreamType() {
-        return streamType;
+    public int getSty() {
+        return sty;
     }
 
-    public StreamSession setStreamType(int streamType) {
-        this.streamType = streamType;
+    public StreamSession setSty(int sty) {
+        this.sty = sty;
         return this;
     }
 
-    public String getServerIp() {
-        return serverIp;
+    public String getSip() {
+        return sip;
     }
 
-    public StreamSession setServerIp(String serverIp) {
-        this.serverIp = serverIp;
+    public StreamSession setSip(String sip) {
+        this.sip = sip;
         return this;
     }
 
-    public int getServerTcpPort() {
-        return serverTcpPort;
+    public int getStp() {
+        return stp;
     }
 
-    public StreamSession setServerTcpPort(int serverTcpPort) {
-        this.serverTcpPort = serverTcpPort;
+    public StreamSession setStp(int stp) {
+        this.stp = stp;
         return this;
     }
 
-    public int getServerUdpPort() {
-        return serverUdpPort;
+    public int getSup() {
+        return sup;
     }
 
-    public StreamSession setServerUdpPort(int serverUdpPort) {
-        this.serverUdpPort = serverUdpPort;
+    public StreamSession setSup(int sup) {
+        this.sup = sup;
         return this;
     }
 
-    public Status getStatus() {
-        return status;
+    public Status getSt() {
+        return st;
     }
 
-    public StreamSession setStatus(Status status) {
-        this.status = status;
+    public StreamSession setSt(Status st) {
+        this.st = st;
         return this;
     }
 
-    public LocalDateTime getRequestedAt() {
-        return requestedAt;
+    public LocalDateTime getReqAt() {
+        return reqAt;
     }
 
-    public StreamSession setRequestedAt(LocalDateTime requestedAt) {
-        this.requestedAt = requestedAt;
+    public StreamSession setReqAt(LocalDateTime reqAt) {
+        this.reqAt = reqAt;
         return this;
     }
 
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
+    public LocalDateTime getUpAt() {
+        return upAt;
     }
 
-    public StreamSession setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
+    public StreamSession setUpAt(LocalDateTime upAt) {
+        this.upAt = upAt;
         return this;
     }
 }
