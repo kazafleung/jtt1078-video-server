@@ -50,7 +50,7 @@ public class MongoService {
      * with the given tag exists.
      *
      * @param tag    channel tag in the form "{clientId}-{channelNo}"
-     * @param status "STREAMING" or "NOT_STREAMING"
+     * @param status "STREAMING"
      */
     public void updateStreamStatus(String tag, String status) {
         try {

@@ -96,7 +96,7 @@ public final class PublishManager {
                 logger.info("[status] {}", chl.statusInfo());
                 MongoService mongo = MongoService.getInstance();
                 if (mongo != null) {
-                    String status = chl.isActivelyPublishing() ? "STREAMING" : "NOT_STREAMING";
+                    String status = chl.isActivelyPublishing() ? "STREAMING" : "STOPPED";
                     mongo.updateStreamStatus(chl.getTag(), status);
                 }
             }

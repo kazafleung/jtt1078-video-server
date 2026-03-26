@@ -51,8 +51,6 @@ public class StreamSession {
         REQUESTED,
         /** Media server confirmed stream is active */
         STREAMING,
-        /** Media server confirmed stream is not active */
-        NOT_STREAMING,
         /** T9102 command=2: stream paused */
         PAUSED,
         /** T9102 command=0/4: stream closed, or media server lost the stream */
