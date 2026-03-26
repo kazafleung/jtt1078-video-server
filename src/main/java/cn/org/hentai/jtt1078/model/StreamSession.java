@@ -54,7 +54,9 @@ public class StreamSession {
         /** T9102 command=2: stream paused */
         PAUSED,
         /** T9102 command=0/4: stream closed, or media server lost the stream */
-        STOPPED
+        STOPPED,
+        /** No video packets received within the heartbeat window; channel removed */
+        ERROR
     }
 
     public StreamSession markUpdated() {

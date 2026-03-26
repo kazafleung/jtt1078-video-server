@@ -7,6 +7,7 @@ import io.netty.channel.ChannelHandlerContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Iterator;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -92,12 +93,21 @@ public final class PublishManager {
                 logger.info("[status] no active channels");
                 return;
             }
-            for (Channel chl : instance.channels.values()) {
+            for (Iterator<Channel> it = instance.channels.values().iterator(); it.hasNext();) {
+                Channel chl = it.next();
                 logger.info("[status] {}", chl.statusInfo());
-                MongoService mongo = MongoService.getInstance();
-                if (mongo != null) {
-                    String status = chl.isActivelyPublishing() ? "STREAMING" : "STOPPED";
-                    mongo.updateStreamStatus(chl.getTag(), status);
+                if (!chl.isActivelyPublishing()) {
+                    logger.warn("[status] channel {} is not actively publishing — marking ERROR and removing",
+                            chl.getTag());
+                    MongoService mongo = MongoService.getInstance();
+                    if (mongo != null)
+                        mongo.updateStreamStatus(chl.getTag(), "ERROR");
+                    it.remove();
+                    chl.close();
+                } else {
+                    MongoService mongo = MongoService.getInstance();
+                    if (mongo != null)
+                        mongo.updateStreamStatus(chl.getTag(), "STREAMING");
                 }
             }
         }, 10, 10, TimeUnit.SECONDS);
