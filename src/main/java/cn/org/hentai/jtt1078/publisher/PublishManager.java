@@ -106,8 +106,16 @@ public final class PublishManager {
                     chl.close();
                 } else {
                     MongoService mongo = MongoService.getInstance();
-                    if (mongo != null)
+                    if (mongo != null) {
                         mongo.updateStreamStatus(chl.getTag(), "STREAMING");
+                        long noSubSince = chl.getLastNoSubscriberTime();
+                        if (noSubSince > 0 && (System.currentTimeMillis() - noSubSince) >= 30_000) {
+                            logger.info(
+                                    "[status] channel {} has had no subscribers for 30s — clearing subscriber records",
+                                    chl.getTag());
+                            mongo.clearSubscribers(chl.getTag());
+                        }
+                    }
                 }
             }
         }, 10, 10, TimeUnit.SECONDS);

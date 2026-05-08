@@ -62,6 +62,21 @@ public class MongoService {
         }
     }
 
+    /**
+     * Clears the subscribers array in the matching stream_sessions document.
+     *
+     * @param tag channel tag in the form "{clientId}-{channelNo}"
+     */
+    public void clearSubscribers(String tag) {
+        try {
+            streamSessions.updateOne(
+                    eq("tag", tag),
+                    combine(set("subscribers", java.util.Collections.emptyList()), set("upAt", new Date())));
+        } catch (Exception e) {
+            logger.error("[mongo] failed to clear subscribers for {}: {}", tag, e.getMessage());
+        }
+    }
+
     public void close() {
         try {
             client.close();

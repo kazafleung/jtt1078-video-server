@@ -35,6 +35,7 @@ public class Channel {
     private long firstTimestamp = -1;
     private long lastVideoPacketTime = -1;
     private long videoPacketCount = 0;
+    private long lastNoSubscriberTime = System.currentTimeMillis();
 
     public Channel(String tag) {
         this.tag = tag;
@@ -68,10 +69,15 @@ public class Channel {
                 tag, publishing, subscribers.size(), buffer.size(), videoPacketCount, idleSec);
     }
 
+    public long getLastNoSubscriberTime() {
+        return lastNoSubscriberTime;
+    }
+
     public Subscriber subscribe(ChannelHandlerContext ctx) {
         logger.info("channel: {} -> {}, subscriber: {}", Long.toHexString(hashCode() & 0xffffffffL), tag,
                 ctx.channel().remoteAddress().toString());
 
+        this.lastNoSubscriberTime = -1;
         Subscriber subscriber = new VideoSubscriber(this.tag, ctx);
         this.subscribers.add(subscriber);
         return subscriber;
@@ -133,6 +139,9 @@ public class Channel {
             if (subscriber.getId() == watcherId) {
                 itr.remove();
                 subscriber.close();
+                if (subscribers.isEmpty()) {
+                    lastNoSubscriberTime = System.currentTimeMillis();
+                }
                 return;
             }
         }
