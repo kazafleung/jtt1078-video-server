@@ -27,51 +27,56 @@ import java.util.concurrent.TimeUnit;
 /**
  * Created by matrixy on 2019/4/9.
  */
-public class VideoServerApp
-{
+public class VideoServerApp {
     private static Logger logger = LoggerFactory.getLogger(VideoServerApp.class);
 
-    public static void main(String[] args) throws Exception
-    {
+    public static void main(String[] args) throws Exception {
         Configs.init("/app.properties");
         PublishManager.init();
         SessionManager.init();
 
         String mongoUri = Configs.get("mongodb.uri");
-        String mongoDb  = Configs.get("mongodb.db");
+        String mongoDb = Configs.get("mongodb.db");
         if (mongoUri != null && mongoDb != null)
             MongoService.init(mongoUri, mongoDb);
 
-        VideoServer videoServer = new VideoServer();
-        HttpServer httpServer = new HttpServer();
+        VideoServer liveVideoServer = new VideoServer("live", Configs.getInt("server.port", 1078));
+        VideoServer playbackVideoServer = new VideoServer("playback", Configs.getInt("server.playback.port", 1079));
 
-        Signal.handle(new Signal("TERM"), new SignalHandler()
-        {
+        Signal.handle(new Signal("TERM"), new SignalHandler() {
             @Override
-            public void handle(Signal signal)
-            {
-                videoServer.shutdown();
-                httpServer.shutdown();
+            public void handle(Signal signal) {
+                liveVideoServer.shutdown();
+                playbackVideoServer.shutdown();
+                HttpServer.shutdown();
             }
         });
 
-        videoServer.start();
-        httpServer.start();
+        liveVideoServer.start();
+        playbackVideoServer.start();
+        HttpServer.start();
     }
 
-    static class VideoServer
-    {
-        private static ServerBootstrap serverBootstrap;
+    static class VideoServer {
+        private ServerBootstrap serverBootstrap;
+        private EventLoopGroup bossGroup;
+        private EventLoopGroup workerGroup;
+        private final String streamType;
+        private final int port;
 
-        private static EventLoopGroup bossGroup;
-        private static EventLoopGroup workerGroup;
+        public VideoServer(String streamType, int port) {
+            this.streamType = streamType;
+            this.port = port;
+        }
 
-        private static void start() throws Exception
-        {
+        private void start() throws Exception {
             serverBootstrap = new ServerBootstrap();
             serverBootstrap.option(ChannelOption.SO_BACKLOG, Configs.getInt("server.backlog", 102400));
-            bossGroup = new NioEventLoopGroup(Configs.getInt("server.worker-count", Runtime.getRuntime().availableProcessors()));
+            bossGroup = new NioEventLoopGroup(
+                    Configs.getInt("server.worker-count", Runtime.getRuntime().availableProcessors()));
             workerGroup = new NioEventLoopGroup();
+
+            final String finalStreamType = this.streamType;
             serverBootstrap.group(bossGroup, workerGroup)
                     .channel(NioServerSocketChannel.class)
                     .childHandler(new ChannelInitializer<SocketChannel>() {
@@ -82,86 +87,67 @@ public class VideoServerApp
                             p.addLast(new Jtt1078MessageDecoder());
                             // p.addLast(new Jtt808MessageEncoder());
                             // p.addLast(new JTT808Handler());
-                            p.addLast(new Jtt1078Handler());
+                            p.addLast(new Jtt1078Handler(finalStreamType));
                         }
                     });
 
-            int port = Configs.getInt("server.port", 1078);
             Channel ch = serverBootstrap.bind(InetAddress.getByName("0.0.0.0"), port).sync().channel();
-            logger.info("Video Server started at: {}", port);
+            logger.info("Video Server ({}) started at: {}", streamType, port);
             ch.closeFuture();
         }
 
-        private static void shutdown()
-        {
-            try
-            {
+        private void shutdown() {
+            try {
                 bossGroup.shutdownGracefully();
                 workerGroup.shutdownGracefully();
-            }
-            catch(Exception e)
-            {
+            } catch (Exception e) {
                 e.printStackTrace();
             }
         }
     }
 
-    static class HttpServer
-    {
+    static class HttpServer {
         private static ServerBootstrap serverBootstrap;
 
         private static EventLoopGroup bossGroup;
         private static EventLoopGroup workerGroup;
 
-        private static void start() throws Exception
-        {
+        private static void start() throws Exception {
             bossGroup = new NioEventLoopGroup();
             workerGroup = new NioEventLoopGroup(Runtime.getRuntime().availableProcessors());
 
             ServerBootstrap bootstrap = new ServerBootstrap();
             bootstrap.group(bossGroup, workerGroup).channel(NioServerSocketChannel.class)
-                    .childHandler(new ChannelInitializer<SocketChannel>()
-                    {
+                    .childHandler(new ChannelInitializer<SocketChannel>() {
                         @Override
-                        public void initChannel(SocketChannel ch) throws Exception
-                        {
+                        public void initChannel(SocketChannel ch) throws Exception {
                             ch.pipeline().addLast(
                                     new GeneralResponseWriter(),
                                     new HttpResponseEncoder(),
                                     new HttpRequestDecoder(),
                                     new HttpObjectAggregator(1024 * 64),
-                                    new NettyHttpServerHandler()
-                            );
+                                    new NettyHttpServerHandler());
                         }
                     }).option(ChannelOption.SO_BACKLOG, 1024)
                     .childOption(ChannelOption.SO_KEEPALIVE, true);
-            try
-            {
+            try {
                 int port = Configs.getInt("server.http.port", 3333);
                 ChannelFuture f = bootstrap.bind(InetAddress.getByName("0.0.0.0"), port).sync();
                 logger.info("HTTP Server started at: {}", port);
                 f.channel().closeFuture().sync();
-            }
-            catch (InterruptedException e)
-            {
+            } catch (InterruptedException e) {
                 logger.error("http server error", e);
-            }
-            finally
-            {
+            } finally {
                 workerGroup.shutdownGracefully();
                 bossGroup.shutdownGracefully();
             }
         }
 
-        private static void shutdown()
-        {
-            try
-            {
+        private static void shutdown() {
+            try {
                 bossGroup.shutdownGracefully();
                 workerGroup.shutdownGracefully();
-            }
-            catch(Exception e)
-            {
+            } catch (Exception e) {
                 e.printStackTrace();
             }
         }
