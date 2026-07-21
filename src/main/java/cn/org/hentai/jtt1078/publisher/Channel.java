@@ -95,9 +95,13 @@ public class Channel {
         if (firstTimestamp == -1) {
             firstTimestamp = timeoffset;
             MediaEncoding.Encoding enc = MediaEncoding.getEncoding(Media.Type.Video, payloadType);
+            // Audio is optional and may arrive after the first video packet. Advertising an
+            // audio track before one exists makes mpegts.js wait forever for audio metadata on
+            // video-only devices. Start with a video-only FLV header; mpegts.js promotes the
+            // stream to audio+video automatically when the first real audio tag arrives.
             flvEncoder = (enc == MediaEncoding.Encoding.H265)
-                    ? new FlvHevcEncoder(true, true)
-                    : new FlvEncoder(true, true);
+                    ? new FlvHevcEncoder(true, false)
+                    : new FlvEncoder(true, false);
             logger.info("video stream started: tag={} codec={}", tag, enc);
         }
         if (flvEncoder == null)
