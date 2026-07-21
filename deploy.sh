@@ -28,6 +28,24 @@ set -Eeuo pipefail
 
 cd "$REMOTE_PROJECT_DIR"
 
+if ! git check-ref-format --branch "$BRANCH" >/dev/null 2>&1; then
+  echo "Invalid branch name: $BRANCH" >&2
+  exit 1
+fi
+
+REMOTE_BRANCH="refs/remotes/origin/$BRANCH"
+
+echo "Fetching origin/$BRANCH"
+git fetch --no-tags origin "refs/heads/$BRANCH:$REMOTE_BRANCH"
+
+if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
+  echo "Switching to existing local branch: $BRANCH"
+  git switch "$BRANCH"
+else
+  echo "Creating local branch $BRANCH from origin/$BRANCH"
+  git switch --track -c "$BRANCH" "origin/$BRANCH"
+fi
+
 echo "Pulling latest changes from origin/$BRANCH"
 git pull --ff-only origin "$BRANCH"
 
