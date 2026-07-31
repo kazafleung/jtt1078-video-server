@@ -65,7 +65,16 @@ public class StreamSession {
     }
 
     public static String buildTag(String cid, int cho) {
-        return String.format("%012d", Long.parseLong(cid)) + "-" + cho;
+        if (cid == null || cid.trim().isEmpty()) {
+            throw new IllegalArgumentException("clientId must not be blank");
+        }
+        String normalized = cid.trim();
+        // Numeric identifiers retain the legacy 12-digit JT1078 tag. Other
+        // string identifiers are preserved instead of being parsed as longs.
+        if (normalized.matches("\\d+")) {
+            normalized = String.format("%12s", normalized).replace(' ', '0');
+        }
+        return normalized + "-" + cho;
     }
 
     public String getId() {

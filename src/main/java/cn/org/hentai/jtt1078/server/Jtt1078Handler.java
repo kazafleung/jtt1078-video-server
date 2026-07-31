@@ -45,11 +45,7 @@ public class Jtt1078Handler extends SimpleChannelInboundHandler<Packet> {
             logger.info("start publishing: {} -> {}-{}", Long.toHexString(chl.hashCode() & 0xffffffffL), sim, channel);
         }
 
-        Integer sequence = SessionManager.get(nettyChannel, "video-sequence");
-        if (sequence == null)
-            sequence = 0;
-        // 1. 做好序号
-        // 2. 音频需要转码后提供订阅
+        int sequence = packet.seek(6).nextShort() & 0xffff;
         int lengthOffset = 28;
         int dataType = (packet.seek(15).nextByte() >> 4) & 0x0f;
         int pkType = packet.seek(15).nextByte() & 0x0f;
@@ -62,18 +58,15 @@ public class Jtt1078Handler extends SimpleChannelInboundHandler<Packet> {
         int pt = packet.seek(5).nextByte() & 0x7f;
 
         if (dataType == 0x00 || dataType == 0x01 || dataType == 0x02) {
-            // 碰到结束标记时，序号+1
-            if (pkType == 0 || pkType == 2) {
-                sequence += 1;
-                SessionManager.set(nettyChannel, "video-sequence", sequence);
-            }
             long timestamp = packet.seek(16).nextLong();
-            PublishManager.getInstance().publishVideo(tag, sequence, timestamp, pt,
+            PublishManager.getInstance().publishVideo(tag, sequence, timestamp, pt, pkType,
                     packet.seek(lengthOffset + 2).nextBytes());
         } else if (dataType == 0x03) {
             long timestamp = packet.seek(16).nextLong();
             byte[] data = packet.seek(lengthOffset + 2).nextBytes();
             PublishManager.getInstance().publishAudio(tag, sequence, timestamp, pt, data);
+        } else {
+            PublishManager.getInstance().observePacket(tag, sequence);
         }
     }
 

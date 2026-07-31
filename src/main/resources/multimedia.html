@@ -9,6 +9,10 @@
 <body style="background-color: #666666">
     <div id="xxoo"
         style="background-color: #333333;border-radius: 10px; overflow: hidden; width: 400px; height: 300px;"></div>
+    <div id="stream-speed"
+        style="display:inline-block;margin-top:8px;padding:3px 8px;border-radius:10px;background:#333;color:#ddd;font:12px monospace;">
+        Stream rate: —
+    </div>
     <input id="tag">
     <script type="text/javascript">
         /**
@@ -61,8 +65,16 @@
                     self.mediaInfo = self.player.mediaInfo;
                 });
 
-                self.player.on('statistics_info', function () {
-                    console.log(arguments);
+                self.player.on('statistics_info', function (info) {
+                    var speedElement = document.getElementById('stream-speed');
+                    if (!speedElement || !info || typeof info.speed !== 'number') return;
+
+                    // mpegts.js reports network receive speed in KB/s.
+                    var kilobitsPerSecond = Math.max(0, info.speed) * 8;
+                    var displaySpeed = kilobitsPerSecond >= 1000
+                        ? (kilobitsPerSecond / 1000).toFixed(1) + ' Mbps'
+                        : Math.round(kilobitsPerSecond) + ' kbps';
+                    speedElement.textContent = 'Stream rate: ' + displaySpeed;
                 });
 
                 var autoPlayTimer = null;
@@ -101,6 +113,8 @@
             this.destroy = function () {
                 this.player.destroy();
                 clearInterval(this.autoFastForwardInterval);
+                var speedElement = document.getElementById('stream-speed');
+                if (speedElement) speedElement.textContent = 'Stream rate: —';
             }
         }
     </script>

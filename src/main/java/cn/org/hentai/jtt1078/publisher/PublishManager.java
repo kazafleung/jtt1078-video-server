@@ -43,14 +43,26 @@ public final class PublishManager {
 
     public void publishAudio(String tag, int sequence, long timestamp, int payloadType, byte[] data) {
         Channel chl = channels.get(tag);
-        if (chl != null)
+        if (chl != null) {
+            chl.observePacketSequence(sequence);
             chl.writeAudio(timestamp, payloadType, data);
+        }
+    }
+
+    public void publishVideo(String tag, int sequence, long timestamp, int payloadType, int packetType, byte[] data) {
+        Channel chl = channels.get(tag);
+        if (chl != null)
+            chl.writeVideo(sequence, timestamp, payloadType, packetType, data);
     }
 
     public void publishVideo(String tag, int sequence, long timestamp, int payloadType, byte[] data) {
+        publishVideo(tag, sequence, timestamp, payloadType, 0, data);
+    }
+
+    public void observePacket(String tag, int sequence) {
         Channel chl = channels.get(tag);
         if (chl != null)
-            chl.writeVideo(sequence, timestamp, payloadType, data);
+            chl.observePacketSequence(sequence);
     }
 
     public Channel open(String tag) {
