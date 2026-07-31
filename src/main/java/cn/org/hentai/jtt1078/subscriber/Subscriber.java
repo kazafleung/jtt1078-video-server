@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.LinkedList;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -23,6 +24,7 @@ public abstract class Subscriber extends Thread
     private Object lock;
     private ChannelHandlerContext context;
     protected LinkedList<byte[]> messages;
+    private final AtomicInteger peakQueuedMessageCount = new AtomicInteger(0);
 
     public Subscriber(String tag, ChannelHandlerContext ctx)
     {
@@ -54,7 +56,24 @@ public abstract class Subscriber extends Thread
         synchronized (lock)
         {
             messages.addLast(data);
+            peakQueuedMessageCount.accumulateAndGet(messages.size(), Math::max);
             lock.notify();
+        }
+    }
+
+    public int getQueuedMessageCount()
+    {
+        synchronized (lock)
+        {
+            return messages.size();
+        }
+    }
+
+    public int resetAndGetPeakQueuedMessageCount()
+    {
+        synchronized (lock)
+        {
+            return peakQueuedMessageCount.getAndSet(messages.size());
         }
     }
 

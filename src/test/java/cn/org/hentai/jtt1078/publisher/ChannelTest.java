@@ -203,6 +203,61 @@ public class ChannelTest
         }
     }
 
+    @Test
+    public void calculatesUploadRateFromReceivedMediaPayloadBytes()
+    {
+        Channel channel = new Channel("upload-rate", 4096);
+        try
+        {
+            byte[] payload = new byte[1000];
+            payload[0] = 0x65;
+            channel.writeVideo(1, 5000, 98, 0, payload);
+
+            Channel.UploadRateSnapshot first = channel.calculateUploadRates(1_000_000_000L);
+            Channel.UploadRateSnapshot second = channel.calculateUploadRates(1_000_000_000L);
+
+            assertEquals(8000, first.videoBitsPerSecond);
+            assertEquals(0, first.audioBitsPerSecond);
+            assertEquals(8000, first.totalBitsPerSecond());
+            assertEquals(0, second.totalBitsPerSecond());
+        }
+        finally
+        {
+            channel.close();
+        }
+    }
+
+    @Test
+    public void statusInfoSummarizesChannelHealthAndResetsIntervalCounters()
+    {
+        Channel channel = new Channel("status-metrics", 2000);
+        try
+        {
+            channel.writeVideo(1, 6000, 98, 0,
+                    new byte[] { 0x00, 0x00, 0x00, 0x01, 0x65, 0x11 });
+            channel.writeVideo(2, 6040, 98, 1, new byte[] { 0x00, 0x00 });
+            channel.writeVideo(4, 6040, 98, 2, new byte[] { 0x01, 0x61, 0x22 });
+
+            String first = channel.statusInfo();
+            String second = channel.statusInfo();
+
+            assertTrue(first.contains("tag=status-metrics state=STREAMING publishing=true codec=H264 pt=98"));
+            assertTrue(first.contains("videoPackets10s=3 audioPackets10s=0 packetsTotal=3"));
+            assertTrue(first.contains("frames10s=1 framesTotal=1"));
+            assertTrue(first.contains("drops10s=1 dropsTotal=1 dropSeq=1"));
+            assertTrue(first.contains("buffer=0 peakBuffer=2 maxBuffer=2000"));
+            assertTrue(first.contains("keyframeAgeSec=0"));
+
+            assertTrue(second.contains("videoPackets10s=0 audioPackets10s=0 packetsTotal=3"));
+            assertTrue(second.contains("frames10s=0 framesTotal=1"));
+            assertTrue(second.contains("drops10s=0 dropsTotal=1 dropSeq=0"));
+        }
+        finally
+        {
+            channel.close();
+        }
+    }
+
     private int startStreamAndReadHeaderFlags(int payloadType)
     {
         Channel channel = new Channel("test-" + payloadType);
